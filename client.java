@@ -18,16 +18,21 @@ public class client {
     public static void main(String[] args) throws Exception {
         String host = null;
         int port = -1;
-        for (int i = 0; i < args.length; i++) {
-            System.out.println("args[" + i + "] = " + args[i]);
-        }
-        if (args.length < 2) {
-            System.out.println("USAGE: java client host port");
+        String path = null;
+        for (int i = 0; i < args.length; i++)
+            System.out.println(args[i]);
+
+        if (args.length < 3) {
+            System.out.println(
+                "USAGE: java SSLSocketClientWithClientAuth " +
+                "host port requestedfilepath");
             System.exit(-1);
         }
-        try { /* get input parameters */
+
+        try {
             host = args[0];
             port = Integer.parseInt(args[1]);
+            path = args[2];
         } catch (IllegalArgumentException e) {
             System.out.println("USAGE: java client host port");
             System.exit(-1);
@@ -60,35 +65,44 @@ public class client {
              * See SSLSocketClient.java for more information about why
              * there is a forced handshake here when using PrintWriters.
              */
-            socket.startHandshake();
+            System.out.println("bef hs");
 
+            socket.startHandshake();
+                        PrintWriter out = new PrintWriter(
+                                  new BufferedWriter(
+                                  new OutputStreamWriter(
+                                  socket.getOutputStream())));
+            out.println("GET " + path + " HTTP/1.0");
+            out.println();
+            out.flush();
+            System.out.println("efter hs");
             SSLSession session = socket.getSession();
             X509Certificate cert = (X509Certificate)session.getPeerCertificateChain()[0];
             String subject = cert.getSubjectDN().getName();
             System.out.println("certificate name (subject DN field) on certificate received from server:\n" + subject + "\n");
+            System.out.println("Issuer field:"+cert.getIssuerDN()+ "\n");
+            System.out.println("Serial number:"+cert.getSerialNumber()+ "\n");
+
             System.out.println("socket after handshake:\n" + socket + "\n");
             System.out.println("secure connection established\n\n");
+            String name = cert.getIssuerDN().getName();
+    
+            if (out.checkError())
+                System.out.println(
+                    "SSLSocketClient: java.io.PrintWriter error");
 
-            BufferedReader read = new BufferedReader(new InputStreamReader(System.in));
-            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            String msg;
-			for (;;) {
-                System.out.print(">");
-                msg = read.readLine();
-                if (msg.equalsIgnoreCase("quit")) {
-				    break;
-				}
-                System.out.print("sending '" + msg + "' to server...");
-                out.println(msg);
-                out.flush();
-                System.out.println("done");
+            /* read response */
+            BufferedReader in = new BufferedReader(
+                                    new InputStreamReader(
+                                    socket.getInputStream()));
 
-                System.out.println("received '" + in.readLine() + "' from server\n");
-            }
+            String inputLine;
+
+            while ((inputLine = in.readLine()) != null)
+                System.out.println(inputLine);
+
             in.close();
 			out.close();
-			read.close();
             socket.close();
         } catch (Exception e) {
             e.printStackTrace();
