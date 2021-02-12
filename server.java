@@ -1,3 +1,44 @@
+
+  
+/*
+ *
+ * Copyright (c) 1994, 2004, Oracle and/or its affiliates. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or
+ * without modification, are permitted provided that the following
+ * conditions are met:
+ *
+ * -Redistribution of source code must retain the above copyright
+ * notice, this list of conditions and the following disclaimer.
+ *
+ * Redistribution in binary form must reproduce the above copyright
+ * notice, this list of conditions and the following disclaimer in
+ * the documentation and/or other materials provided with the
+ * distribution.
+ *
+ * Neither the name of Oracle nor the names of
+ * contributors may be used to endorse or promote products derived
+ * from this software without specific prior written permission.
+ *
+ * This software is provided "AS IS," without a warranty of any
+ * kind. ALL EXPRESS OR IMPLIED CONDITIONS, REPRESENTATIONS AND
+ * WARRANTIES, INCLUDING ANY IMPLIED WARRANTY OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT, ARE HEREBY
+ * EXCLUDED. SUN MICROSYSTEMS, INC. ("SUN") AND ITS LICENSORS SHALL
+ * NOT BE LIABLE FOR ANY DAMAGES SUFFERED BY LICENSEE AS A RESULT
+ * OF USING, MODIFYING OR DISTRIBUTING THIS SOFTWARE OR ITS
+ * DERIVATIVES. IN NO EVENT WILL SUN OR ITS LICENSORS BE LIABLE FOR
+ * ANY LOST REVENUE, PROFIT OR DATA, OR FOR DIRECT, INDIRECT,
+ * SPECIAL, CONSEQUENTIAL, INCIDENTAL OR PUNITIVE DAMAGES, HOWEVER
+ * CAUSED AND REGARDLESS OF THE THEORY OF LIABILITY, ARISING OUT OF
+ * THE USE OF OR INABILITY TO USE THIS SOFTWARE, EVEN IF SUN HAS
+ * BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+ *
+ * You acknowledge that this software is not designed, licensed or
+ * intended for use in the design, construction, operation or
+ * maintenance of any nuclear facility.
+ */
+
 import java.io.*;
 import java.net.*;
 import java.security.KeyStore;
@@ -5,70 +46,98 @@ import javax.net.*;
 import javax.net.ssl.*;
 import javax.security.cert.X509Certificate;
 
-public class server implements Runnable {
-    private ServerSocket serverSocket = null;
-    private static int numConnectedClients = 0;
+/* ClassFileServer.java -- a simple file server that can server
+ * Http get request in both clear and secure channel
+ *
+ * The ClassFileServer implements a ClassServer that
+ * reads files from the file system. See the
+ * doc for the "Main" method for how to run this
+ * server.
+ */
 
-    public server(ServerSocket ss) throws IOException {
-        serverSocket = ss;
-        newListener();
+public class server extends ClassServer {
+
+    private String docroot;
+
+    private static int DefaultServerPort = 2001;
+
+    /**
+     * Constructs a ClassFileServer.
+     *
+     * @param path the path where the server locates files
+     */
+    public server(ServerSocket ss, String docroot) throws IOException
+    {
+        super(ss);
+        this.docroot = docroot;
     }
 
-    public void run() {
-        try {
-            SSLSocket socket=(SSLSocket)serverSocket.accept();
-            newListener();
-            SSLSession session = socket.getSession();
-            X509Certificate cert = (X509Certificate)session.getPeerCertificateChain()[0];
-            String subject = cert.getSubjectDN().getName();
-    	    numConnectedClients++;
-            System.out.println("client connected");
-            System.out.println("client name (cert subject DN field): " + subject);
-            System.out.println(numConnectedClients + " concurrent connection(s)\n");
+    /**
+     * Returns an array of bytes containing the bytes for
+     * the file represented by the argument <b>path</b>.
+     *
+     * @return the bytes for the file
+     * @exception FileNotFoundException if the file corresponding
+     * to <b>path</b> could not be loaded.
+     */
+    public byte[] getBytes(String path)
+        throws IOException
+    {
+        System.out.println("reading: " + path);
+        File f = new File(docroot + File.separator + path);
+        int length = (int)(f.length());
+        if (length == 0) {
+            throw new IOException("File length is zero: " + path);
+        } else {
+            FileInputStream fin = new FileInputStream(f);
+            DataInputStream in = new DataInputStream(fin);
 
-            PrintWriter out = null;
-            BufferedReader in = null;
-            out = new PrintWriter(socket.getOutputStream(), true);
-            in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-
-            String clientMsg = null;
-            while ((clientMsg = in.readLine()) != null) {
-			    String rev = new StringBuilder(clientMsg).reverse().toString();
-                System.out.println("received '" + clientMsg + "' from client");
-                System.out.print("sending '" + rev + "' to client...");
-				out.println(rev);
-				out.flush();
-                System.out.println("done\n");
-			}
-			in.close();
-			out.close();
-			socket.close();
-    	    numConnectedClients--;
-            System.out.println("client disconnected");
-            System.out.println(numConnectedClients + " concurrent connection(s)\n");
-		} catch (IOException e) {
-            System.out.println("Client died: " + e.getMessage());
-            e.printStackTrace();
-            return;
+            byte[] bytecodes = new byte[length];
+            in.readFully(bytecodes);
+            return bytecodes;
         }
     }
 
-    private void newListener() { (new Thread(this)).start(); } // calls run()
+    /**
+     * Main method to create the class server that reads
+     * files. This takes two command line arguments, the
+     * port on which the server accepts requests and the
+     * root of the path. To start up the server: <br><br>
+     *
+     * <code>   java ClassFileServer <port> <path>
+     * </code><br><br>
+     *
+     * <code>   new ClassFileServer(port, docroot);
+     * </code>
+     */
+    public static void main(String args[])
+    {
+      
+        int port = DefaultServerPort;
+        String docroot = "";
 
-    public static void main(String args[]) {
-        System.out.println("\nServer Started\n");
-        int port = -1;
         if (args.length >= 1) {
             port = Integer.parseInt(args[0]);
         }
-        String type = "TLS";
+
+        if (args.length >= 2) {
+            docroot = args[1];
+        }
+        String type = "PlainSocket";
+        if (args.length >= 3) {
+            type = args[2];
+        }
         try {
-            ServerSocketFactory ssf = getServerSocketFactory(type);
+            ServerSocketFactory ssf =
+                server.getServerSocketFactory(type);
             ServerSocket ss = ssf.createServerSocket(port);
-            ((SSLServerSocket)ss).setNeedClientAuth(true); // enables client authentication
-            new server(ss);
+            if (args.length >= 4 && args[3].equals("true")) {
+                ((SSLServerSocket)ss).setNeedClientAuth(true);
+            }
+            new server(ss, docroot);
         } catch (IOException e) {
-            System.out.println("Unable to start Server: " + e.getMessage());
+            System.out.println("Unable to start ClassServer: " +
+                               e.getMessage());
             e.printStackTrace();
         }
     }
@@ -76,7 +145,9 @@ public class server implements Runnable {
     private static ServerSocketFactory getServerSocketFactory(String type) {
         if (type.equals("TLS")) {
             SSLServerSocketFactory ssf = null;
-            try { // set up key manager to perform server authentication
+            try {
+            
+
                 SSLContext ctx = SSLContext.getInstance("TLS");
                 KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
                 TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");
@@ -84,13 +155,15 @@ public class server implements Runnable {
 				KeyStore ts = KeyStore.getInstance("JKS");
                 char[] password = "password".toCharArray();
 
-                ks.load(new FileInputStream("serverkeystore"), password);  // keystore password (storepass)
-                ts.load(new FileInputStream("servertruststore"), password); // truststore password (storepass)
+                ks.load(new FileInputStream("serverkeystore.jks"), password);  // keystore password (storepass)
+                ts.load(new FileInputStream("servertruststore.jks"), password); // truststore password (storepass)
                 kmf.init(ks, password); // certificate password (keypass)
                 tmf.init(ts);  // possible to use keystore as truststore here
                 ctx.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
                 ssf = ctx.getServerSocketFactory();
                 return ssf;
+
+
             } catch (Exception e) {
                 e.printStackTrace();
             }

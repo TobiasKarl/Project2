@@ -1,0 +1,9 @@
+Agneta borg;3;D;
+hans;3;D;
+Magda borg;3;S;
+Mats borge;2;S;
+Nils bor;2;D;
+Kalle kula;2;P;
+Coola kalle;3;P;
+CA;3;D;
+
