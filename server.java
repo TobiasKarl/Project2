@@ -38,13 +38,15 @@
  * intended for use in the design, construction, operation or
  * maintenance of any nuclear facility.
  */
-
+import java.io.Console;
 import java.io.*;
 import java.net.*;
 import java.security.KeyStore;
 import javax.net.*;
 import javax.net.ssl.*;
 import javax.security.cert.X509Certificate;
+import java.util.Scanner; 
+import java.io.Console;
 
 /* ClassFileServer.java -- a simple file server that can server
  * Http get request in both clear and secure channel
@@ -83,7 +85,6 @@ public class server extends ClassServer {
     public byte[] getBytes(String path)
         throws IOException
     {
-        System.out.println("reading: " + path);
         File f = new File(docroot + File.separator + path);
         int length = (int)(f.length());
         if (length == 0) {
@@ -97,6 +98,7 @@ public class server extends ClassServer {
             return bytecodes;
         }
     }
+
 
     /**
      * Main method to create the class server that reads

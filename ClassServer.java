@@ -5,6 +5,7 @@ import java.net.*;
 import java.security.KeyStore;
 import java.security.cert.*;
 import java.util.*;
+import java.util.Scanner;
 import javax.net.*;
 import javax.net.ssl.*;
 import javax.net.ssl.SSLSession;
@@ -102,23 +103,22 @@ public abstract class ClassServer implements Runnable {
         BufferedReader in = new BufferedReader(
           new InputStreamReader(socket.getInputStream())
         );
-        String path = getPath(in);
+
+        String line = in.readLine();
+
+        String path = getPath(line);
+        String action = getAction(line);
+        String newCont = "";
+        if (action.equalsIgnoreCase("write")) {
+          newCont = getCont(in);
+        }
         // retrieve bytecodes
         byte[] bytecodes = getBytes(path);
         // send bytecodes in response (assumes HTTP/1.0 or later)
 
-        if (isAuthorised(subject, division, role, bytecodes, path)) {
-          try {
-            out.print("HTTP/1.0 200 OK\r\n");
-            out.print("Content-Length: " + bytecodes.length + "\r\n");
-            out.print("Content-Type: text/html\r\n\r\n");
-            out.flush();
-            rawOut.write(bytecodes);
-            rawOut.flush();
-          } catch (IOException ie) {
-            ie.printStackTrace();
-            return;
-          }
+        if (isAuthorised(subject, division, role, bytecodes, path, action)) {
+   
+          handleAction(rawOut, bytecodes, action, path, out, newCont);
         } else {
           out.println("HTTP/1.0 400 Unauthorised! \r\n");
           out.println("Content-Type: text/html\r\n\r\n");
@@ -150,11 +150,102 @@ public abstract class ClassServer implements Runnable {
     (new Thread(this)).start();
   }
 
+  private boolean handleAction(
+    OutputStream rawOut,
+    byte[] bytecodes,
+    String action,
+    String path,
+    PrintWriter out,
+    String newCont
+  ) {
+    switch (action.toLowerCase()) {
+      case "read":
+        out.println("File...\r\n");
+        out.flush();
+        try {
+          rawOut.write(bytecodes);
+          rawOut.flush();
+        } catch (IOException ie) {
+          ie.printStackTrace();
+        }
+        break;
+      case "write":
+        out.println("File before writing...\r\n");
+        out.flush();
+        try {
+          rawOut.write(bytecodes);
+        } catch (IOException ie) {
+          ie.printStackTrace();
+        }
+
+        if (WriteToFile(path, newCont)) {
+          out.println("File after writing...\r\n");
+          out.flush();
+
+          try {
+            bytecodes = getBytes(path);
+
+            rawOut.write(bytecodes);
+            rawOut.flush();
+          } catch (IOException ie) {
+            ie.printStackTrace();
+          }
+        }
+
+        break;
+      case "create file":
+        break;
+    }
+    return false;
+  }
+
+  private Boolean WriteToFile(String path, String newCont) {
+    try {
+      File myFile = new File(path); // Specify the filename
+      StringBuilder builder = new StringBuilder();
+      Scanner scannerF = new Scanner(new File(path));
+
+      int count = 0;
+      while (scannerF.hasNextLine() && count < 3) {
+        String line = scannerF.nextLine();
+        builder.append(line + "\n");
+        count++;
+      }
+      FileWriter myWriter = new FileWriter(path);
+      myWriter.write(builder.toString());
+      myWriter.write(newCont);
+      myWriter.close();
+
+      return true;
+    } catch (IOException e) {
+      System.out.println("An error occurred.");
+      e.printStackTrace();
+      return false;
+    }
+  }
+
+  private static String getCont(BufferedReader in) throws IOException {
+    StringBuilder sb = new StringBuilder();
+
+    String line = in.readLine();
+
+    while (
+      line != null &&
+      line.length() != 0 &&
+      (line.charAt(0) != '\r') &&
+      (line.charAt(0) != '\n')
+    ) {
+      sb.append(line + "\n");
+      line = in.readLine();
+    }
+
+    return sb.toString();
+  }
+
   /**
    * Returns the path to the file obtained from parsing the HTML header.
    */
-  private static String getPath(BufferedReader in) throws IOException {
-    String line = in.readLine();
+  private static String getPath(String line) throws IOException {
     String path = "";
     // extract class from GET line
     if (line.startsWith("GET /")) {
@@ -164,21 +255,20 @@ public abstract class ClassServer implements Runnable {
         path = line.substring(0, index);
       }
     }
+    return path;
+  }
 
-    // eat the rest of header
-    do {
-      line = in.readLine();
-    } while (
-      (line.length() != 0) &&
-      (line.charAt(0) != '\r') &&
-      (line.charAt(0) != '\n')
-    );
-
-    if (path.length() != 0) {
-      return path;
-    } else {
-      throw new IOException("Malformed Header");
+  private static String getAction(String line) throws IOException {
+    String path = "";
+    // extract class from GET line
+    if (line.startsWith("GET /")) {
+      line = line.substring(line.indexOf('@') + 1, line.length() - 1).trim();
+      int index = line.indexOf(' ');
+      if (index != -1) {
+        path = line.substring(0, index);
+      }
     }
+    return path;
   }
 
   private static Boolean isAuthorised(
@@ -186,7 +276,8 @@ public abstract class ClassServer implements Runnable {
     String division,
     String role,
     byte[] fileContent,
-    String path
+    String path,
+    String action
   ) {
     String[] content = new String(fileContent).split("\n");
     //String nurse = content[0];
@@ -194,26 +285,47 @@ public abstract class ClassServer implements Runnable {
     //String division = content[2];
     switch (role) {
       case "S":
-        if (
-          content[0].equalsIgnoreCase(name) ||
-          content[2].equalsIgnoreCase(division)
-        ) {
-          return true;
+        if (content[0].equalsIgnoreCase(name)) {
+          if (
+            action.equalsIgnoreCase("read") || action.equalsIgnoreCase("write")
+          ) {
+            return true;
+          }
+
+          return false;
+        } else if (content[2].equalsIgnoreCase(division)) {
+          if (action.equalsIgnoreCase("read")) {
+            return true;
+          }
+          return false;
         }
         break;
       case "D":
-        if (
-          content[1].equalsIgnoreCase(name) ||
-          content[2].equalsIgnoreCase(division)
-        ) {
-          return true;
+        if (content[1].equalsIgnoreCase(name)) {
+          if (
+            action.equalsIgnoreCase("read") || action.equalsIgnoreCase("write")
+          ) {
+            return true;
+          }
+
+          return false;
+        } else if (content[2].equalsIgnoreCase(division)) {
+          if (action.equalsIgnoreCase("read")) {
+            return true;
+          }
+          return false;
         }
+
         break;
       case "P":
         if (path.contains(name)) {
-          return true;
+          if (action.equalsIgnoreCase("read")) {
+            return true;
+          }
+          return false;
         }
         break;
+      //Testa att skriva til filer
     }
     return false;
   }
