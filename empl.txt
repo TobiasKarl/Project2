@@ -1,5 +1,5 @@
-Agneta borg;3;D;
-hans;3;D;
+Agneta borg;3;D;Coola kalle;
+hans;3;D;Coola kalle;
 Magda borg;3;S;
 Mats borge;2;S;
 Nils bor;2;D;

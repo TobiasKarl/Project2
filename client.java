@@ -1,11 +1,11 @@
 import java.io.*;
+import java.io.Console;
 import java.net.*;
 import java.security.KeyStore;
 import java.security.cert.*;
 import java.util.*;
 import javax.net.ssl.*;
 import javax.security.cert.X509Certificate;
-import java.io.Console;
 
 /*
  * This example shows how to set up a key manager to perform client
@@ -21,7 +21,7 @@ public class client {
     String host = null;
     int port = -1;
     String path = null;
-    Console cnsl  = System.console();
+    Console cnsl = System.console();
     for (int i = 0; i < args.length; i++) System.out.println(args[i]);
 
     if (args.length < 3) {
@@ -40,13 +40,13 @@ public class client {
       System.out.println("USAGE: java client host port");
       System.exit(-1);
     }
-
+    String myname = "";
     try {/* set up a key manager for client authentication */
       SSLSocketFactory factory = null;
       try {
         System.out.println("What is your name?");
         Scanner scanner = new Scanner(System.in);
-        String name = cnsl.readLine("Name: ").toLowerCase();
+        myname = cnsl.readLine("Name: ").toLowerCase();
 
         System.out.println("Enter password: ");
         char[] password = cnsl.readPassword("Password: ");
@@ -57,11 +57,11 @@ public class client {
         TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");
         SSLContext ctx = SSLContext.getInstance("TLS");
         ks.load(
-          new FileInputStream("clients/" + name + "/keystore.jks"),
+          new FileInputStream("clients/" + myname + "/keystore.jks"),
           password
         ); // keystore password (storepass)
         ts.load(
-          new FileInputStream("clients/" + name + "/keystore.jks"),
+          new FileInputStream("clients/" + myname + "/keystore.jks"),
           password
         ); // truststore password (storepass);
         kmf.init(ks, password); // user password (keypass)
@@ -74,13 +74,14 @@ public class client {
       }
       SSLSocket socket = (SSLSocket) factory.createSocket(host, port);
       System.out.println("\nsocket before handshake:\n" + socket + "\n");
- 
+      System.out.println("\nversion-handshake:\n" + socket + "\n");
+
       boolean okAction = false;
       String action = "";
       while (!okAction) {
-                System.out.println(
-        "What action would you like to do? Options are: Read, Write or Create file"
-      );
+        System.out.println(
+          "What action would you like to do? Options are: Read, Write or Create file"
+        );
         Scanner scanner = new Scanner(System.in);
         action = scanner.nextLine().toLowerCase();
         if (
@@ -103,15 +104,45 @@ public class client {
       PrintWriter out = new PrintWriter(
         new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()))
       );
-      out.println("GET " + path + " @" + action + " HTTP/1.0");
       String cont = "";
+
+      if (action.equalsIgnoreCase("create file")) {
+        System.out.println("What is the name of the patient?");
+        Scanner scanner = new Scanner(System.in);
+        String name = scanner.nextLine().toLowerCase();
+        out.println("CREATE /" + name + "# HTTP/1.0");
+
+        System.out.println("What is the name of the nurse?");
+        Scanner nurseN = new Scanner(System.in);
+        String nameNur = nurseN.nextLine().toLowerCase();
+
+        System.out.println("What department?");
+        Scanner depS = new Scanner(System.in);
+        String dep = depS.nextLine().toLowerCase();
+
+        System.out.println("What would you like to write to the file?");
+        Scanner scannerC = new Scanner(System.in);
+        cont = scannerC.nextLine().toLowerCase();
+        out.println(nameNur);
+        out.println(myname);
+        out.println(dep);
+      } else {
+        System.out.println("Which patient?");
+        Scanner patSC = new Scanner(System.in);
+        String pat = patSC.nextLine().toLowerCase();
+        System.out.println("What journal number?");
+        Scanner patSN = new Scanner(System.in);
+        String patN = patSN.nextLine().toLowerCase();
+        path = "/clients/" + pat + "/journal" + patN + ".txt";
+        out.println("GET " + path + "# @" + action + " HTTP/1.0");
+      }
       if (action.equalsIgnoreCase("write")) {
         System.out.println("What would you like to write to the file?");
-        Scanner scanner = new Scanner(System.in);
-        cont = scanner.nextLine().toLowerCase();
+        Scanner scannerC = new Scanner(System.in);
+        cont = scannerC.nextLine().toLowerCase();
       }
-      out.println(cont);
 
+      out.println(cont);
       out.println();
       out.flush();
       SSLSession session = socket.getSession();
@@ -124,7 +155,6 @@ public class client {
       );
       System.out.println("Issuer field:" + cert.getIssuerDN() + "\n");
       System.out.println("Serial number:" + cert.getSerialNumber() + "\n");
-
       System.out.println("socket after handshake:\n" + socket + "\n");
       System.out.println("secure connection established\n\n");
       String name = cert.getIssuerDN().getName();

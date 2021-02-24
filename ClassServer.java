@@ -107,22 +107,48 @@ public abstract class ClassServer implements Runnable {
         String line = in.readLine();
 
         String path = getPath(line);
-        String action = getAction(line);
-        String newCont = "";
-        if (action.equalsIgnoreCase("write")) {
-          newCont = getCont(in);
-        }
-        // retrieve bytecodes
-        byte[] bytecodes = getBytes(path);
-        // send bytecodes in response (assumes HTTP/1.0 or later)
+        boolean isCreate = isCreate(line);
+        if (isCreate) {
+          int count = 1;
 
-        if (isAuthorised(subject, division, role, bytecodes, path, action)) {
-   
-          handleAction(rawOut, bytecodes, action, path, out, newCont);
+          if (role.equalsIgnoreCase("D") && isAllowed(subject, path)) {
+            File myFile = new File(
+              "clients/" + path + "/journal" + count + ".txt"
+            ); // Specify the filename
+            Boolean created = false;
+            while (!created) {
+              myFile =
+                new File("clients/" + path + "/journal" + count + ".txt");
+
+              if (myFile.createNewFile()) {
+                created = true;
+                System.out.println("Journal created: " + myFile.getName());
+              }
+              count++;
+            }
+            WriteToNewFile(myFile, getCont(in));
+          } else {
+            out.println("HTTP/1.0 400 Unauthorised! \r\n");
+            out.println("Content-Type: text/html\r\n\r\n");
+            out.flush();
+          }
         } else {
-          out.println("HTTP/1.0 400 Unauthorised! \r\n");
-          out.println("Content-Type: text/html\r\n\r\n");
-          out.flush();
+          String action = getAction(line);
+          String newCont = "";
+          if (action.equalsIgnoreCase("write")) {
+            newCont = getCont(in);
+          }
+          // retrieve bytecodes
+          byte[] bytecodes = getBytes(path);
+          // send bytecodes in response (assumes HTTP/1.0 or later)
+
+          if (isAuthorised(subject, division, role, bytecodes, path, action)) {
+            handleAction(rawOut, bytecodes, action, path, out, newCont);
+          } else {
+            out.println("HTTP/1.0 400 Unauthorised! \r\n");
+            out.println("Content-Type: text/html\r\n\r\n");
+            out.flush();
+          }
         }
       } catch (Exception e) {
         e.printStackTrace();
@@ -177,7 +203,6 @@ public abstract class ClassServer implements Runnable {
         } catch (IOException ie) {
           ie.printStackTrace();
         }
-
         if (WriteToFile(path, newCont)) {
           out.println("File after writing...\r\n");
           out.flush();
@@ -204,7 +229,6 @@ public abstract class ClassServer implements Runnable {
       File myFile = new File(path); // Specify the filename
       StringBuilder builder = new StringBuilder();
       Scanner scannerF = new Scanner(new File(path));
-
       int count = 0;
       while (scannerF.hasNextLine() && count < 3) {
         String line = scannerF.nextLine();
@@ -224,11 +248,22 @@ public abstract class ClassServer implements Runnable {
     }
   }
 
+  private Boolean WriteToNewFile(File myFile, String newCont) {
+    try {
+      FileWriter myWriter = new FileWriter(myFile);
+      myWriter.write(newCont);
+      myWriter.close();
+      return true;
+    } catch (IOException e) {
+      System.out.println("An error occurred.");
+      e.printStackTrace();
+      return false;
+    }
+  }
+
   private static String getCont(BufferedReader in) throws IOException {
     StringBuilder sb = new StringBuilder();
-
     String line = in.readLine();
-
     while (
       line != null &&
       line.length() != 0 &&
@@ -238,7 +273,6 @@ public abstract class ClassServer implements Runnable {
       sb.append(line + "\n");
       line = in.readLine();
     }
-
     return sb.toString();
   }
 
@@ -250,7 +284,13 @@ public abstract class ClassServer implements Runnable {
     // extract class from GET line
     if (line.startsWith("GET /")) {
       line = line.substring(5, line.length() - 1).trim();
-      int index = line.indexOf(' ');
+      int index = line.indexOf('#');
+      if (index != -1) {
+        path = line.substring(0, index);
+      }
+    } else if (line.startsWith("CREATE /")) {
+      line = line.substring(8, line.length() - 1).trim();
+      int index = line.indexOf('#');
       if (index != -1) {
         path = line.substring(0, index);
       }
@@ -269,6 +309,38 @@ public abstract class ClassServer implements Runnable {
       }
     }
     return path;
+  }
+
+  private static Boolean isCreate(String line) throws IOException {
+    if (line.startsWith("GET /")) {
+      return false;
+    }
+    return true;
+  }
+
+  public boolean isAllowed(String subject, String path) {
+    try {
+      File empl = new File("empl.txt");
+      BufferedReader reader = new BufferedReader(new FileReader(empl));
+      while (reader.ready()) {
+        String line = reader.readLine();
+        String[] words = line.split(";");
+        if (words[0].equalsIgnoreCase(subject)) {
+          if (words.length > 2) {
+            for (int i = 3; i < words.length; i++) {
+              if (words[i].equalsIgnoreCase(path)) {
+                return true;
+              }
+            }
+          }
+        }
+      }
+    } catch (IOException e) {
+      System.out.println("Class Server died: " + e.getMessage());
+      e.printStackTrace();
+      return false;
+    }
+    return false;
   }
 
   private static Boolean isAuthorised(
