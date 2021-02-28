@@ -80,14 +80,15 @@ public class client {
       String action = "";
       while (!okAction) {
         System.out.println(
-          "What action would you like to do? Options are: Read, Write or Create file"
+          "What action would you like to do? Options are: Read, Write, Create file or Delete"
         );
         Scanner scanner = new Scanner(System.in);
         action = scanner.nextLine().toLowerCase();
         if (
           action.equalsIgnoreCase("write") ||
           action.equalsIgnoreCase("read") ||
-          action.equalsIgnoreCase("create file")
+          action.equalsIgnoreCase("create file") ||
+          action.equalsIgnoreCase("delete")
         ) {
           okAction = true;
         }
