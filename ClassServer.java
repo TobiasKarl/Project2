@@ -220,8 +220,23 @@ public abstract class ClassServer implements Runnable {
         break;
       case "create file":
         break;
+      case "delete":
+
+        out.println("File to delete\r\n");
+        out.flush();
+        if(deleteFile(path)) {
+          out.println("File deleted");
+        } else {
+          out.println("Could not delete file");
+        }
+        out.flush();
+        break;
     }
     return false;
+  }
+  private static boolean deleteFile(String path) {
+    File target = new File(path);
+    return target.delete();
   }
 
   private Boolean WriteToFile(String path, String newCont) {
@@ -397,6 +412,8 @@ public abstract class ClassServer implements Runnable {
           return false;
         }
         break;
+        case "G":
+        return action.equalsIgnoreCase("delete") || action.equalsIgnoreCase("read");
       //Testa att skriva til filer
     }
     return false;
