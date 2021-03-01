@@ -4,6 +4,7 @@ import java.net.*;
 import java.net.*;
 import java.security.KeyStore;
 import java.security.cert.*;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.Scanner;
 import javax.net.*;
@@ -122,12 +123,43 @@ public abstract class ClassServer implements Runnable {
 
               if (myFile.createNewFile()) {
                 created = true;
+                try (
+                  FileWriter writer = new FileWriter("Auditlog.txt",true);
+                  BufferedWriter bw = new BufferedWriter(writer)
+                ) {
+                  bw.append(
+                    subject +
+                    " " +
+                    "journal creation" +
+                    " success " +
+                    new SimpleDateFormat("HH:mm:ss").format(new Date())+"\n"
+                  );
+                  bw.close();
+                } catch (IOException e) {
+                  System.err.format("IOException: %s%n", e);
+                }
                 System.out.println("Journal created: " + myFile.getName());
               }
               count++;
             }
             WriteToNewFile(myFile, getCont(in));
           } else {
+                            try (
+                  FileWriter writer = new FileWriter("Auditlog.txt",true);
+                  BufferedWriter bw = new BufferedWriter(writer)
+                ) {
+                  writer.close();
+                  bw.append(
+                    subject +
+                    " " +
+                    "journal creation" +
+                    " failed " +
+                    new SimpleDateFormat("HH:mm:ss").format(new Date())+"\n"
+                  );
+                  bw.close();
+                } catch (IOException e) {
+                  System.err.format("IOException: %s%n", e);
+                }
             out.println("HTTP/1.0 400 Unauthorised! \r\n");
             out.println("Content-Type: text/html\r\n\r\n");
             out.flush();
@@ -143,8 +175,39 @@ public abstract class ClassServer implements Runnable {
           // send bytecodes in response (assumes HTTP/1.0 or later)
 
           if (isAuthorised(subject, division, role, bytecodes, path, action)) {
+            try (
+              FileWriter writer = new FileWriter("Auditlog.txt",true);
+              BufferedWriter bw = new BufferedWriter(writer)
+            ) {
+              bw.append(
+                subject +
+                " " +
+                action +
+                " success " +
+                new SimpleDateFormat("HH:mm:ss").format(new Date())+"\n"
+              );
+              bw.close();
+            } catch (IOException e) {
+              System.err.format("IOException: %s%n", e);
+            }
+
             handleAction(rawOut, bytecodes, action, path, out, newCont);
           } else {
+            try (
+              FileWriter writer = new FileWriter("Auditlog.txt",true);
+              BufferedWriter bw = new BufferedWriter(writer)
+            ) {
+              bw.append(
+                subject +
+                " " +
+                action +
+                " failed " +
+                new SimpleDateFormat("HH:mm:ss").format(new Date())+"\n"
+              );
+              bw.close();
+            } catch (IOException e) {
+              System.err.format("IOException: %s%n", e);
+            }
             out.println("HTTP/1.0 400 Unauthorised! \r\n");
             out.println("Content-Type: text/html\r\n\r\n");
             out.flush();
@@ -221,10 +284,9 @@ public abstract class ClassServer implements Runnable {
       case "create file":
         break;
       case "delete":
-
         out.println("File to delete\r\n");
         out.flush();
-        if(deleteFile(path)) {
+        if (deleteFile(path)) {
           out.println("File deleted");
         } else {
           out.println("Could not delete file");
@@ -234,6 +296,7 @@ public abstract class ClassServer implements Runnable {
     }
     return false;
   }
+
   private static boolean deleteFile(String path) {
     File target = new File(path);
     return target.delete();
@@ -370,6 +433,7 @@ public abstract class ClassServer implements Runnable {
     //String nurse = content[0];
     //String doctor = content[1];
     //String division = content[2];
+
     switch (role) {
       case "S":
         if (content[0].equalsIgnoreCase(name)) {
@@ -405,15 +469,17 @@ public abstract class ClassServer implements Runnable {
 
         break;
       case "P":
-        if (path.contains(name)) {
+        if (path.toLowerCase().contains(name.toLowerCase())) {
           if (action.equalsIgnoreCase("read")) {
             return true;
           }
           return false;
         }
         break;
-        case "G":
-        return action.equalsIgnoreCase("delete") || action.equalsIgnoreCase("read");
+      case "G":
+        return (
+          action.equalsIgnoreCase("delete") || action.equalsIgnoreCase("read")
+        );
       //Testa att skriva til filer
     }
     return false;
