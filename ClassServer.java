@@ -351,6 +351,11 @@ public abstract class ClassServer implements Runnable {
     }
   }
 
+  private static boolean deleteFile(String path) {
+    File target = new File(path);
+    return target.delete();
+  }
+
   private static String getCont(BufferedReader in) throws IOException {
     StringBuilder sb = new StringBuilder();
     String line = in.readLine();
