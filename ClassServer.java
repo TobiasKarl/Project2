@@ -24,6 +24,7 @@ import javax.security.cert.X509Certificate;
 public abstract class ClassServer implements Runnable {
 
   private ServerSocket server = null;
+  private static int numConnectedClients = 0;
 
   /**
    * Constructs a ClassServer based on <b>ss</b> and obtains a file's bytecodes
@@ -68,6 +69,10 @@ public abstract class ClassServer implements Runnable {
     }
 
     String subject = cert.getSubjectDN().getName();
+    numConnectedClients++;
+    System.out.println("client connected");
+    System.out.println("client name (cert subject DN field): " + subject);
+    System.out.println(numConnectedClients + " concurrent connection(s)\n");
     String role = "P";
     String division = "1";
     subject = subject.substring(subject.indexOf("=") + 1, subject.indexOf(","));
@@ -124,7 +129,7 @@ public abstract class ClassServer implements Runnable {
               if (myFile.createNewFile()) {
                 created = true;
                 try (
-                  FileWriter writer = new FileWriter("Auditlog.txt",true);
+                  FileWriter writer = new FileWriter("Auditlog.txt", true);
                   BufferedWriter bw = new BufferedWriter(writer)
                 ) {
                   bw.append(
@@ -132,7 +137,8 @@ public abstract class ClassServer implements Runnable {
                     " " +
                     "journal creation" +
                     " success " +
-                    new SimpleDateFormat("HH:mm:ss").format(new Date())+"\n"
+                    new SimpleDateFormat("HH:mm:ss").format(new Date()) +
+                    "\n"
                   );
                   bw.close();
                 } catch (IOException e) {
@@ -144,22 +150,22 @@ public abstract class ClassServer implements Runnable {
             }
             WriteToNewFile(myFile, getCont(in));
           } else {
-                            try (
-                  FileWriter writer = new FileWriter("Auditlog.txt",true);
-                  BufferedWriter bw = new BufferedWriter(writer)
-                ) {
-                  writer.close();
-                  bw.append(
-                    subject +
-                    " " +
-                    "journal creation" +
-                    " failed " +
-                    new SimpleDateFormat("HH:mm:ss").format(new Date())+"\n"
-                  );
-                  bw.close();
-                } catch (IOException e) {
-                  System.err.format("IOException: %s%n", e);
-                }
+            try (
+              FileWriter writer = new FileWriter("Auditlog.txt", true);
+              BufferedWriter bw = new BufferedWriter(writer)
+            ) {
+              bw.append(
+                subject +
+                " " +
+                "journal creation" +
+                " failed " +
+                new SimpleDateFormat("HH:mm:ss").format(new Date()) +
+                "\n"
+              );
+              bw.close();
+            } catch (IOException e) {
+              System.err.format("IOException: %s%n", e);
+            }
             out.println("HTTP/1.0 400 Unauthorised! \r\n");
             out.println("Content-Type: text/html\r\n\r\n");
             out.flush();
@@ -176,7 +182,7 @@ public abstract class ClassServer implements Runnable {
 
           if (isAuthorised(subject, division, role, bytecodes, path, action)) {
             try (
-              FileWriter writer = new FileWriter("Auditlog.txt",true);
+              FileWriter writer = new FileWriter("Auditlog.txt", true);
               BufferedWriter bw = new BufferedWriter(writer)
             ) {
               bw.append(
@@ -184,7 +190,8 @@ public abstract class ClassServer implements Runnable {
                 " " +
                 action +
                 " success " +
-                new SimpleDateFormat("HH:mm:ss").format(new Date())+"\n"
+                new SimpleDateFormat("HH:mm:ss").format(new Date()) +
+                "\n"
               );
               bw.close();
             } catch (IOException e) {
@@ -194,7 +201,7 @@ public abstract class ClassServer implements Runnable {
             handleAction(rawOut, bytecodes, action, path, out, newCont);
           } else {
             try (
-              FileWriter writer = new FileWriter("Auditlog.txt",true);
+              FileWriter writer = new FileWriter("Auditlog.txt", true);
               BufferedWriter bw = new BufferedWriter(writer)
             ) {
               bw.append(
@@ -202,7 +209,8 @@ public abstract class ClassServer implements Runnable {
                 " " +
                 action +
                 " failed " +
-                new SimpleDateFormat("HH:mm:ss").format(new Date())+"\n"
+                new SimpleDateFormat("HH:mm:ss").format(new Date()) +
+                "\n"
               );
               bw.close();
             } catch (IOException e) {
@@ -227,6 +235,10 @@ public abstract class ClassServer implements Runnable {
       ex.printStackTrace();
     } finally {
       try {
+        numConnectedClients--;
+        System.out.println("client disconnected");
+        System.out.println("client name (cert subject DN field): " + subject);
+        System.out.println(numConnectedClients + " concurrent connection(s)\n");
         socket.close();
       } catch (IOException e) {}
     }

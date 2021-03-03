@@ -2,7 +2,7 @@ Agneta borg;3;D;Coola kalle;
 hans;3;D;Coola kalle;
 Magda borg;3;S;
 Mats borge;2;S;
-Nils bor;2;D;
+Nils bor;2;D;Kalle kula;
 Kalle kula;2;P;
 Coola kalle;3;P;
 Government;_;G;

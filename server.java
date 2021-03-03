@@ -163,7 +163,6 @@ public class server extends ClassServer {
                 tmf.init(ts);  // possible to use keystore as truststore here
                 ctx.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
                 ssf = ctx.getServerSocketFactory();
-                System.out.println("här");
                 return ssf;
 
 

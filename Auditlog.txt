@@ -1,1 +1,15 @@
 Coola kalle read success 13:59:04
+Agneta borg delete failed 14:03:17
+Agneta borg journal creation failed 14:28:44
+Agneta borg read success 08:16:45
+Agneta borg delete failed 08:30:52
+hans read success 08:51:31
+hans write failed 08:55:53
+Government write failed 08:58:43
+Government read success 08:58:56
+Government journal creation failed 08:59:43
+Government delete success 09:01:14
+hans journal creation failed 09:02:04
+hans journal creation success 09:02:58
+Agneta borg journal creation success 11:07:14
+Agneta borg read failed 11:09:06

@@ -24,18 +24,11 @@ public class client {
     Console cnsl = System.console();
     for (int i = 0; i < args.length; i++) System.out.println(args[i]);
 
-    if (args.length < 3) {
-      System.out.println(
-        "USAGE: java SSLSocketClientWithClientAuth " +
-        "host port requestedfilepath"
-      );
-      System.exit(-1);
-    }
+ 
 
     try {
       host = args[0];
       port = Integer.parseInt(args[1]);
-      path = args[2];
     } catch (IllegalArgumentException e) {
       System.out.println("USAGE: java client host port");
       System.exit(-1);
@@ -44,7 +37,7 @@ public class client {
     try {/* set up a key manager for client authentication */
       SSLSocketFactory factory = null;
       try {
-        System.out.println("What is your name?");
+        //System.out.println("What is your name?");
         Scanner scanner = new Scanner(System.in);
         myname = cnsl.readLine("Name: ").toLowerCase();
 
@@ -74,11 +67,36 @@ public class client {
       }
       SSLSocket socket = (SSLSocket) factory.createSocket(host, port);
       System.out.println("\nsocket before handshake:\n" + socket + "\n");
-      System.out.println("\nversion-handshake:\n" + socket + "\n");
 
       boolean okAction = false;
       String action = "";
-      while (!okAction) {
+ 
+
+      /*
+       * send http request
+       *
+       * See SSLSocketClient.java for more information about why
+       * there is a forced handshake here when using PrintWriters.
+       */
+
+      socket.startHandshake();
+
+
+
+      SSLSession session = socket.getSession();
+      X509Certificate cert = (X509Certificate) session.getPeerCertificateChain()[0];
+      String subject = cert.getIssuerDN().getName();
+      System.out.println(
+        "certificate name (subject DN field) on certificate received from server:\n" +
+        subject +
+        "\n"
+      );
+      System.out.println("Issuer field:" + cert.getIssuerDN() + "\n");
+      System.out.println("Serial number:" + cert.getSerialNumber() + "\n");
+      System.out.println("socket after handshake:\n" + socket + "\n");
+      System.out.println("secure connection established\n\n");
+
+     while (!okAction) {
         System.out.println(
           "What action would you like to do? Options are: Read, Write, Create file or Delete"
         );
@@ -93,20 +111,11 @@ public class client {
           okAction = true;
         }
       }
-
-      /*
-       * send http request
-       *
-       * See SSLSocketClient.java for more information about why
-       * there is a forced handshake here when using PrintWriters.
-       */
-
-      socket.startHandshake();
       PrintWriter out = new PrintWriter(
         new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()))
       );
       String cont = "";
-
+ 
       if (action.equalsIgnoreCase("create file")) {
         System.out.println("What is the name of the patient?");
         Scanner scanner = new Scanner(System.in);
@@ -146,18 +155,7 @@ public class client {
       out.println(cont);
       out.println();
       out.flush();
-      SSLSession session = socket.getSession();
-      X509Certificate cert = (X509Certificate) session.getPeerCertificateChain()[0];
-      String subject = cert.getIssuerDN().getName();
-      System.out.println(
-        "certificate name (subject DN field) on certificate received from server:\n" +
-        subject +
-        "\n"
-      );
-      System.out.println("Issuer field:" + cert.getIssuerDN() + "\n");
-      System.out.println("Serial number:" + cert.getSerialNumber() + "\n");
-      System.out.println("socket after handshake:\n" + socket + "\n");
-      System.out.println("secure connection established\n\n");
+     
       String name = cert.getIssuerDN().getName();
 
       if (out.checkError()) System.out.println(
